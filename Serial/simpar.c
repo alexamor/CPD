@@ -193,7 +193,11 @@ int main(int argc, char *argv[]){
 					else
 						F = G *par[i].m*cell_mat[adj_column][adj_row].m / d2;
 
-					printf("%lf\n", d2 );
+					//Divide by 0 error check
+					if(F == 0)
+						dx = 1;
+
+					//printf("%lf\n", d2 );
 
 					// get cartesian components of the gravitational force
 					if ( j == -1 && k == -1 ){
@@ -202,6 +206,7 @@ int main(int argc, char *argv[]){
 					}
 
 					printf("fx %lf   fy %lf\n", par[i].fx, par[i].fy);
+					printf("atan  %lf\n", atan(dy/dx));
 
 					// calculate force
 					par[i].fx += F*cos(atan(dy/dx));
