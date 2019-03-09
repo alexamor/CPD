@@ -72,6 +72,8 @@ int main(int argc, char *argv[]){
         par[i].x = RND0_1;
         par[i].y = RND0_1;
 
+        printf("par x %lf par y %lf \n", par[i].x, par[i].y);
+
         // velocity
         par[i].vx = RND0_1 / ncside / 10.0;
         par[i].vy = RND0_1 / ncside / 10.0;
@@ -132,7 +134,7 @@ int main(int argc, char *argv[]){
 
 			for(j = -1; j < 2; j++){
 
-				printf("j = %d\n", j);
+				//printf("j = %d\n", j);
 				
 				adj_column = column + j;
 
@@ -147,7 +149,7 @@ int main(int argc, char *argv[]){
 
 				for(k = -1; k < 2; k++){
 
-					printf("k = %d\n", k);
+					//printf("k = %d\n", k);
 
 					adj_row = row + k;
 
@@ -163,7 +165,7 @@ int main(int argc, char *argv[]){
 					dx = cell_mat[adj_column][adj_row].x - par[i].x;
 					dy = cell_mat[adj_column][adj_row].y - par[i].y;
 
-					printf("mat.y %lf  par.y %lf\n", cell_mat[adj_column][adj_row].y, par[i].y);
+					//printf("mat.y %lf  par.y %lf\n", cell_mat[adj_column][adj_row].y, par[i].y);
 
 					// calculate distances when the cells are out of borders
 					if(j == -1 && adj_column == ncside - 1)
@@ -179,7 +181,7 @@ int main(int argc, char *argv[]){
 						dy = 1 + (cell_mat[adj_column][adj_row].y - par[i].y);
 
 
-					printf("dx %lf     dy %lf\n", dx, dy);
+					//printf("dx %lf     dy %lf\n", dx, dy);
 
 
 					// calculate distance and gravitational force
@@ -191,13 +193,15 @@ int main(int argc, char *argv[]){
 					else
 						F = G *par[i].m*cell_mat[adj_column][adj_row].m / d2;
 
+					printf("%lf\n", d2 );
+
 					// get cartesian components of the gravitational force
 					if ( j == -1 && k == -1 ){
 						par[i].fx = 0;
 						par[i].fy = 0;
 					}
 
-					//printf("fx %lf   fy %lf\n", par[i].fx, par[i].fy);
+					printf("fx %lf   fy %lf\n", par[i].fx, par[i].fy);
 
 					// calculate force
 					par[i].fx += F*cos(atan(dy/dx));
@@ -216,6 +220,9 @@ int main(int argc, char *argv[]){
     		ax = par[i].fx / par[i].m;
     		ay = par[i].fy / par[i].m;
 
+
+    		//printf("fx %lf   fy %lf\n", par[i].fx, par[i].fy);
+    		printf("ax %lf ay %lf \n", ax, ay);
 
     		// position
     		par[i].x += par[i].vx + ax;
@@ -245,7 +252,6 @@ int main(int argc, char *argv[]){
     	// zeroing the mass centers 
     	for(i = 0; i < ncside; i++)
     		for(j = 0; j < ncside; j++){
-    			printf("centro de massa %lf\n", cell_mat[i][j].m );
     			cell_mat[i][j].x = 0;
     			cell_mat[i][j].y = 0;
     			cell_mat[i][j].m = 0;
@@ -257,17 +263,21 @@ int main(int argc, char *argv[]){
 
 
     // calculate final mass center
-    for(i = 0; i< n_part; i++){
+    for(i = 0; i < n_part; i++){
 
     	    // average calculated progressively without needing to store every x and y value
-    		mx = (mx*m + par[i].m * par[i].x) / (m + par[i].m);
-    		my = (my*m + par[i].m * par[i].y) / (m + par[i].m);
+    		mx = par[i].m * par[i].x;
+    		my = par[i].m * par[i].y;
+
+    		//printf("mx %lf my %lf\n", par[i].x, par[i].y );
 
     		// total mass
     		m += par[i].m; 
 
     }
 
+    mx = mx/m;
+    my = my/m;
     // output
     printf("%.2lf %.2lf\n", par[0].x, par[0].y );
     printf("%.2lf %.2lf\n", mx, my );
