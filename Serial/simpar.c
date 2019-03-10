@@ -106,6 +106,14 @@ int main(int argc, char *argv[]){
     
     // cycle of time step iterations
     for(t = 0; t < n_tstep; t++){
+
+    	// zeroing the mass centers 
+    	for(i = 0; i < ncside; i++)
+    		for(j = 0; j < ncside; j++){
+    			cell_mat[i][j].x = 0;
+    			cell_mat[i][j].y = 0;
+    			cell_mat[i][j].m = 0;
+    		}
     	
     	// calculation of the mass center
     	for(i = 0; i < n_part; i++){
@@ -205,12 +213,13 @@ int main(int argc, char *argv[]){
 						par[i].fy = 0;
 					}
 
-					printf("fx %lf   fy %lf\n", par[i].fx, par[i].fy);
 					printf("atan  %lf\n", atan(dy/dx));
 
 					// calculate force
 					par[i].fx += F*cos(atan(dy/dx));
 					par[i].fy += F*sin(atan(dy/dx));
+					
+					printf("fx %lf   fy %lf\n", par[i].fx, par[i].fy);
 				}
 
 			}    	
@@ -227,7 +236,7 @@ int main(int argc, char *argv[]){
 
 
     		//printf("fx %lf   fy %lf\n", par[i].fx, par[i].fy);
-    		printf("ax %lf ay %lf \n", ax, ay);
+    		//printf("ax %lf ay %lf \n", ax, ay);
 
     		// position
     		par[i].x += par[i].vx + ax;
@@ -253,26 +262,16 @@ int main(int argc, char *argv[]){
 
 
     	}
-
-    	// zeroing the mass centers 
-    	for(i = 0; i < ncside; i++)
-    		for(j = 0; j < ncside; j++){
-    			cell_mat[i][j].x = 0;
-    			cell_mat[i][j].y = 0;
-    			cell_mat[i][j].m = 0;
-    		}
-
     
     }
 
-
-
+    
     // calculate final mass center
     for(i = 0; i < n_part; i++){
 
     	    // average calculated progressively without needing to store every x and y value
-    		mx = par[i].m * par[i].x;
-    		my = par[i].m * par[i].y;
+    		mx += par[i].m * par[i].x;
+    		my += par[i].m * par[i].y;
 
     		//printf("mx %lf my %lf\n", par[i].x, par[i].y );
 
@@ -280,9 +279,24 @@ int main(int argc, char *argv[]){
     		m += par[i].m; 
 
     }
+	
+	//Note: Altrough is faster to average the cells the result ends up poorly rounded, failing the correct answer for +-0.01 
+    /*
+    for(i = 0; i < ncside; i++)
+    {
+    	for(j = 0; j < ncside; j++)
+    	{
+    		mx += cell_mat[i][j].x * cell_mat[i][j].m; 
+    		my += cell_mat[i][j].y * cell_mat[i][j].m;
+
+    		m += cell_mat[i][j].m;
+    	}
+    }
+    */
 
     mx = mx/m;
     my = my/m;
+
     // output
     printf("%.2lf %.2lf\n", par[0].x, par[0].y );
     printf("%.2lf %.2lf\n", mx, my );
