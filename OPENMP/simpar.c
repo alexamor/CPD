@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <omp.h>
+
 
 
 // Constant variables and functions
@@ -94,7 +96,7 @@ int main(int argc, char *argv[]){
     }
     for(i = 0; i < ncside; i++){
 
-    	// initialization to zero 
+    	// initialization to zero
     	cell_mat[i] = (cell *) calloc( ncside, sizeof(cell));
 
     	if (cell_mat[i] == NULL){
@@ -103,22 +105,22 @@ int main(int argc, char *argv[]){
     	}
     }
 
-    
+
     // cycle of time step iterations
     for(t = 0; t < n_tstep; t++){
 
-    	// zeroing the mass centers 
+    	// zeroing the mass centers
     	for(i = 0; i < ncside; i++)
     		for(j = 0; j < ncside; j++){
     			cell_mat[i][j].x = 0;
     			cell_mat[i][j].y = 0;
     			cell_mat[i][j].m = 0;
     		}
-    	
+
     	// calculation of the mass center
     	for(i = 0; i < n_part; i++){
 
-    		// get location in grid from the position - truncating the float value 
+    		// get location in grid from the position - truncating the float value
     		column = (int) (par[i].x * ncside);
     		row = (int) (par[i].y * ncside);
 
@@ -127,13 +129,13 @@ int main(int argc, char *argv[]){
     		cell_mat[column][row].y = (cell_mat[column][row].y*cell_mat[column][row].m + par[i].m * par[i].y) / (cell_mat[column][row].m + par[i].m);
 
     		// total mass
-    		cell_mat[column][row].m += par[i].m; 
+    		cell_mat[column][row].m += par[i].m;
     	}
 
     	// calculation of the gravitational force
     	for(i = 0; i < n_part; i++){
-    		
-    		// get location in grid from the position - truncating the float value 
+
+    		// get location in grid from the position - truncating the float value
     		column = (int) (par[i].x * ncside);
     		row = (int) (par[i].y * ncside);
 
@@ -143,7 +145,7 @@ int main(int argc, char *argv[]){
 			for(j = -1; j < 2; j++){
 
 				//printf("j = %d\n", j);
-				
+
 				adj_column = column + j;
 
 				// TODO ver se conseguimos transformar numa operação matematica atraves do modulo
@@ -169,7 +171,7 @@ int main(int argc, char *argv[]){
 						adj_row = ncside - 1;
 					}
 
-					// calculate usual distances 
+					// calculate usual distances
 					dx = cell_mat[adj_column][adj_row].x - par[i].x;
 					dy = cell_mat[adj_column][adj_row].y - par[i].y;
 
@@ -218,11 +220,11 @@ int main(int argc, char *argv[]){
 					// calculate force
 					par[i].fx += F*cos(atan(dy/dx));
 					par[i].fy += F*sin(atan(dy/dx));
-					
+
 					printf("fx %lf   fy %lf\n", par[i].fx, par[i].fy);
 				}
 
-			}    	
+			}
 
 
     	}
@@ -262,10 +264,10 @@ int main(int argc, char *argv[]){
 
 
     	}
-    
+
     }
 
-    
+
     // calculate final mass center
     for(i = 0; i < n_part; i++){
 
@@ -276,17 +278,17 @@ int main(int argc, char *argv[]){
     		//printf("mx %lf my %lf\n", par[i].x, par[i].y );
 
     		// total mass
-    		m += par[i].m; 
+    		m += par[i].m;
 
     }
-	
-	//Note: Altrough is faster to average the cells the result ends up poorly rounded, failing the correct answer for +-0.01 
+
+	//Note: Altrough is faster to average the cells the result ends up poorly rounded, failing the correct answer for +-0.01
     /*
     for(i = 0; i < ncside; i++)
     {
     	for(j = 0; j < ncside; j++)
     	{
-    		mx += cell_mat[i][j].x * cell_mat[i][j].m; 
+    		mx += cell_mat[i][j].x * cell_mat[i][j].m;
     		my += cell_mat[i][j].y * cell_mat[i][j].m;
 
     		m += cell_mat[i][j].m;
