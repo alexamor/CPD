@@ -214,11 +214,11 @@ POMP_Parallel_join(&omp_rd_4);
     	// calculation of the mass center
 POMP_Parallel_fork(&omp_rd_5);
 #line 157 "simpar.c"
-    #pragma omp parallel     private(i,column,row)
+    #pragma omp parallel     private(i,column,row)                 
 { POMP_Parallel_begin(&omp_rd_5);
 POMP_For_enter(&omp_rd_5);
 #line 157 "simpar.c"
-    #pragma omp          for                       nowait
+    #pragma omp          for                       schedule(static) nowait
     	for(i = 0; i < n_part; i++){
 
     		// get location in grid from the position - truncating the float value
