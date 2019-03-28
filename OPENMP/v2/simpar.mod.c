@@ -1,10 +1,16 @@
+#ifdef _POMP
+#  undef _POMP
+#endif
+#define _POMP 200110
+
+#include "simpar.c.opari.inc"
+#line 1 "simpar.c"
 //SIMPAR.C
 
 // Libraries
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-#include <omp.h>
 
 
 
@@ -105,7 +111,15 @@ int main(int argc, char *argv[]){
     	exit(0);
     }
 
-#pragma omp parallel for
+
+
+POMP_Parallel_fork(&omp_rd_1);
+#line 110 "simpar.c"
+#pragma omp parallel    
+{ POMP_Parallel_begin(&omp_rd_1);
+POMP_For_enter(&omp_rd_1);
+#line 110 "simpar.c"
+#pragma omp          for nowait
     for(i = 0; i < ncside; i++){
 
     	// initialization to zero
@@ -116,6 +130,15 @@ int main(int argc, char *argv[]){
     		exit(0);
     	}
     }
+POMP_Barrier_enter(&omp_rd_1);
+#pragma omp barrier
+POMP_Barrier_exit(&omp_rd_1);
+POMP_For_exit(&omp_rd_1);
+POMP_Parallel_end(&omp_rd_1); }
+POMP_Parallel_join(&omp_rd_1);
+#line 121 "simpar.c"
+
+
 
     // memory allocation of the locks matrix
     my_lock_matrix = (omp_lock_t **) malloc( sizeof(omp_lock_t *)* ncside);
@@ -123,34 +146,79 @@ int main(int argc, char *argv[]){
     	printf("No memory available for the number of locks required.\n");
     	exit(0);
     }
-#pragma omp parallel for 
+POMP_Parallel_fork(&omp_rd_2);
+#line 130 "simpar.c"
+#pragma omp parallel    
+{ POMP_Parallel_begin(&omp_rd_2);
+POMP_For_enter(&omp_rd_2);
+#line 130 "simpar.c"
+#pragma omp          for nowait
     for(i = 0; i < ncside; i++){
 
     	my_lock_matrix[i] = (omp_lock_t *) malloc( sizeof(omp_lock_t) * ncside);
 
 	}
+POMP_Barrier_enter(&omp_rd_2);
+#pragma omp barrier
+POMP_Barrier_exit(&omp_rd_2);
+POMP_For_exit(&omp_rd_2);
+POMP_Parallel_end(&omp_rd_2); }
+POMP_Parallel_join(&omp_rd_2);
+#line 136 "simpar.c"
 
-#pragma omp parallel for private(i,j)
+POMP_Parallel_fork(&omp_rd_3);
+#line 137 "simpar.c"
+#pragma omp parallel     private(i,j)
+{ POMP_Parallel_begin(&omp_rd_3);
+POMP_For_enter(&omp_rd_3);
+#line 137 "simpar.c"
+#pragma omp          for              nowait
 	for (i = 0; i < ncside; i++)
 		for (j = 0; j < ncside; j++)
 		{
-			omp_init_lock(&my_lock_matrix[i][j]);
+			POMP_Init_lock(&my_lock_matrix[i][j]);
 		}
+POMP_Barrier_enter(&omp_rd_3);
+#pragma omp barrier
+POMP_Barrier_exit(&omp_rd_3);
+POMP_For_exit(&omp_rd_3);
+POMP_Parallel_end(&omp_rd_3); }
+POMP_Parallel_join(&omp_rd_3);
+#line 143 "simpar.c"
 
     // cycle of time step iterations
     for(t = 0; t < n_tstep; t++){
 
     	// zeroing the mass centers and initating locks
-    #pragma omp parallel for private(i,j)
+POMP_Parallel_fork(&omp_rd_4);
+#line 148 "simpar.c"
+    #pragma omp parallel     private(i,j)
+{ POMP_Parallel_begin(&omp_rd_4);
+POMP_For_enter(&omp_rd_4);
+#line 148 "simpar.c"
+    #pragma omp          for              nowait
     	for(i = 0; i < ncside; i++)
     		for(j = 0; j < ncside; j++){
     			cell_mat[i][j].x = 0;
     			cell_mat[i][j].y = 0;
     			cell_mat[i][j].m = 0;
     		}
+POMP_Barrier_enter(&omp_rd_4);
+#pragma omp barrier
+POMP_Barrier_exit(&omp_rd_4);
+POMP_For_exit(&omp_rd_4);
+POMP_Parallel_end(&omp_rd_4); }
+POMP_Parallel_join(&omp_rd_4);
+#line 155 "simpar.c"
 
     	// calculation of the mass center
-    #pragma omp parallel for private(i,column,row)
+POMP_Parallel_fork(&omp_rd_5);
+#line 157 "simpar.c"
+    #pragma omp parallel     private(i,column,row)
+{ POMP_Parallel_begin(&omp_rd_5);
+POMP_For_enter(&omp_rd_5);
+#line 157 "simpar.c"
+    #pragma omp          for                       nowait
     	for(i = 0; i < n_part; i++){
 
     		// get location in grid from the position - truncating the float value
@@ -158,22 +226,66 @@ int main(int argc, char *argv[]){
     		row = (int) (par[i].y * ncside);
 
 
-    		// locking the cell
-    		omp_set_lock(&my_lock_matrix[column][row]);
 
     		// average calculated progressively without needing to store every x and y value
-    		cell_mat[column][row].y = (cell_mat[column][row].y*cell_mat[column][row].m + par[i].m * par[i].y) / (cell_mat[column][row].m + par[i].m);
-    		cell_mat[column][row].x = (cell_mat[column][row].x*cell_mat[column][row].m + par[i].m * par[i].x) / (cell_mat[column][row].m + par[i].m);
-    		
-    		// total mass
-    		cell_mat[column][row].m += par[i].m;
+POMP_Atomic_enter(&omp_rd_6);
+#line 167 "simpar.c"
+				#pragma omp atomic
+    		cell_mat[column][row].y += par[i].m * par[i].y;
+POMP_Atomic_exit(&omp_rd_6);
+#line 169 "simpar.c"
+POMP_Atomic_enter(&omp_rd_7);
+#line 169 "simpar.c"
+				#pragma omp atomic
+				cell_mat[column][row].x += par[i].m * par[i].x;
+POMP_Atomic_exit(&omp_rd_7);
+#line 171 "simpar.c"
 
-    		//unlocking
-    		omp_unset_lock(&my_lock_matrix[column][row]);
+    		// total mass
+POMP_Atomic_enter(&omp_rd_8);
+#line 173 "simpar.c"
+				#pragma omp atomic
+    		cell_mat[column][row].m += par[i].m;
+POMP_Atomic_exit(&omp_rd_8);
+#line 175 "simpar.c"
+
     	}
+POMP_Barrier_enter(&omp_rd_5);
+#pragma omp barrier
+POMP_Barrier_exit(&omp_rd_5);
+POMP_For_exit(&omp_rd_5);
+POMP_Parallel_end(&omp_rd_5); }
+POMP_Parallel_join(&omp_rd_5);
+#line 177 "simpar.c"
+
+POMP_Parallel_fork(&omp_rd_9);
+#line 178 "simpar.c"
+			#pragma omp parallel     private(i, j)
+{ POMP_Parallel_begin(&omp_rd_9);
+POMP_For_enter(&omp_rd_9);
+#line 178 "simpar.c"
+   #pragma omp          for               nowait
+			for(i = 0; i < ncside; i++)
+				for(j = 0; j < ncside; j++){
+					cell_mat[i][j].x /= cell_mat[i][j].m;
+					cell_mat[i][j].y /= cell_mat[i][j].m;
+				}
+POMP_Barrier_enter(&omp_rd_9);
+#pragma omp barrier
+POMP_Barrier_exit(&omp_rd_9);
+POMP_For_exit(&omp_rd_9);
+POMP_Parallel_end(&omp_rd_9); }
+POMP_Parallel_join(&omp_rd_9);
+#line 184 "simpar.c"
 
     	// calculation of the gravitational force
-#pragma omp parallel for private(i, j, k, column, row, adj_column, adj_row, dx, dy, d2, F)
+POMP_Parallel_fork(&omp_rd_10);
+#line 186 "simpar.c"
+#pragma omp parallel     private(i, j, k, column, row, adj_column, adj_row, dx, dy, d2, F)
+{ POMP_Parallel_begin(&omp_rd_10);
+POMP_For_enter(&omp_rd_10);
+#line 186 "simpar.c"
+#pragma omp          for                                                                   nowait
     	for(i = 0; i < n_part; i++){
 
     		// get location in grid from the position - truncating the float value
@@ -269,9 +381,22 @@ int main(int argc, char *argv[]){
 
 
     	}
+POMP_Barrier_enter(&omp_rd_10);
+#pragma omp barrier
+POMP_Barrier_exit(&omp_rd_10);
+POMP_For_exit(&omp_rd_10);
+POMP_Parallel_end(&omp_rd_10); }
+POMP_Parallel_join(&omp_rd_10);
+#line 282 "simpar.c"
 
     	// calculation of new velocity and position
-#pragma omp parallel for private(i, ax, ay)
+POMP_Parallel_fork(&omp_rd_11);
+#line 284 "simpar.c"
+#pragma omp parallel     private(i, ax, ay)
+{ POMP_Parallel_begin(&omp_rd_11);
+POMP_For_enter(&omp_rd_11);
+#line 284 "simpar.c"
+#pragma omp          for                    nowait
     	for(i = 0; i < n_part; i++){
 
     		// get acceleration
@@ -306,6 +431,13 @@ int main(int argc, char *argv[]){
 
 
     	}
+POMP_Barrier_enter(&omp_rd_11);
+#pragma omp barrier
+POMP_Barrier_exit(&omp_rd_11);
+POMP_For_exit(&omp_rd_11);
+POMP_Parallel_end(&omp_rd_11); }
+POMP_Parallel_join(&omp_rd_11);
+#line 319 "simpar.c"
 
     	printf("Finished iteration: %d\n", t);
 
@@ -313,7 +445,13 @@ int main(int argc, char *argv[]){
 
 
     // calculate final mass center
-#pragma omp parallel for reduction(+:mx,my,m)
+POMP_Parallel_fork(&omp_rd_12);
+#line 326 "simpar.c"
+#pragma omp parallel     reduction(+:mx,my,m)
+{ POMP_Parallel_begin(&omp_rd_12);
+POMP_For_enter(&omp_rd_12);
+#line 326 "simpar.c"
+#pragma omp          for                      nowait
     for(i = 0; i < n_part; i++){
 
     	    // average calculated progressively without needing to store every x and y value
@@ -326,6 +464,13 @@ int main(int argc, char *argv[]){
     		m += par[i].m;
 
     }
+POMP_Barrier_enter(&omp_rd_12);
+#pragma omp barrier
+POMP_Barrier_exit(&omp_rd_12);
+POMP_For_exit(&omp_rd_12);
+POMP_Parallel_end(&omp_rd_12); }
+POMP_Parallel_join(&omp_rd_12);
+#line 339 "simpar.c"
 
 	//Note: Altrough is faster to average the cells the result ends up poorly rounded, failing the correct answer for +-0.01
     /*
@@ -348,20 +493,46 @@ int main(int argc, char *argv[]){
     printf("%.2lf %.2lf\n", par[0].x, par[0].y );
     printf("%.2lf %.2lf\n", mx, my );
 
-#pragma omp parallel for private(i,j)
+POMP_Parallel_fork(&omp_rd_13);
+#line 361 "simpar.c"
+#pragma omp parallel     private(i,j)
+{ POMP_Parallel_begin(&omp_rd_13);
+POMP_For_enter(&omp_rd_13);
+#line 361 "simpar.c"
+#pragma omp          for              nowait
 	for (i = 0; i < ncside; i++)
 		for (j = 0; j < ncside; j++)
 		{
-			omp_destroy_lock(&my_lock_matrix[i][j]);
+			POMP_Destroy_lock(&my_lock_matrix[i][j]);
 		}
+POMP_Barrier_enter(&omp_rd_13);
+#pragma omp barrier
+POMP_Barrier_exit(&omp_rd_13);
+POMP_For_exit(&omp_rd_13);
+POMP_Parallel_end(&omp_rd_13); }
+POMP_Parallel_join(&omp_rd_13);
+#line 367 "simpar.c"
 
     // freeing the allocated memory
     free(par);
-#pragma omp parallel for
+POMP_Parallel_fork(&omp_rd_14);
+#line 370 "simpar.c"
+#pragma omp parallel    
+{ POMP_Parallel_begin(&omp_rd_14);
+POMP_For_enter(&omp_rd_14);
+#line 370 "simpar.c"
+#pragma omp          for nowait
     for (i = 0; i < ncside; i++){
     	free(cell_mat[i]);
     	free(my_lock_matrix[i]);
     }
+POMP_Barrier_enter(&omp_rd_14);
+#pragma omp barrier
+POMP_Barrier_exit(&omp_rd_14);
+POMP_For_exit(&omp_rd_14);
+POMP_Parallel_end(&omp_rd_14); }
+POMP_Parallel_join(&omp_rd_14);
+#line 375 "simpar.c"
     free(cell_mat);
     free(my_lock_matrix);
 

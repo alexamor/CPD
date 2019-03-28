@@ -105,6 +105,8 @@ int main(int argc, char *argv[]){
     	exit(0);
     }
 
+
+
 #pragma omp parallel for
     for(i = 0; i < ncside; i++){
 
@@ -117,13 +119,15 @@ int main(int argc, char *argv[]){
     	}
     }
 
+
+
     // memory allocation of the locks matrix
     my_lock_matrix = (omp_lock_t **) malloc( sizeof(omp_lock_t *)* ncside);
     if (my_lock_matrix == NULL){
     	printf("No memory available for the number of locks required.\n");
     	exit(0);
     }
-#pragma omp parallel for 
+#pragma omp parallel for
     for(i = 0; i < ncside; i++){
 
     	my_lock_matrix[i] = (omp_lock_t *) malloc( sizeof(omp_lock_t) * ncside);
@@ -158,19 +162,25 @@ int main(int argc, char *argv[]){
     		row = (int) (par[i].y * ncside);
 
 
-    		// locking the cell
-    		omp_set_lock(&my_lock_matrix[column][row]);
 
     		// average calculated progressively without needing to store every x and y value
-    		cell_mat[column][row].y = (cell_mat[column][row].y*cell_mat[column][row].m + par[i].m * par[i].y) / (cell_mat[column][row].m + par[i].m);
-    		cell_mat[column][row].x = (cell_mat[column][row].x*cell_mat[column][row].m + par[i].m * par[i].x) / (cell_mat[column][row].m + par[i].m);
-    		
+				#pragma omp atomic
+    		cell_mat[column][row].y += par[i].m * par[i].y;
+				#pragma omp atomic
+				cell_mat[column][row].x += par[i].m * par[i].x;
+
     		// total mass
+				#pragma omp atomic
     		cell_mat[column][row].m += par[i].m;
 
-    		//unlocking
-    		omp_unset_lock(&my_lock_matrix[column][row]);
     	}
+
+			#pragma omp parallel for private(i, j)
+			for(i = 0; i < ncside; i++)
+				for(j = 0; j < ncside; j++){
+					cell_mat[i][j].x /= cell_mat[i][j].m;
+					cell_mat[i][j].y /= cell_mat[i][j].m;
+				}
 
     	// calculation of the gravitational force
 #pragma omp parallel for private(i, j, k, column, row, adj_column, adj_row, dx, dy, d2, F)
