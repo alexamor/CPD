@@ -38,6 +38,7 @@ int main(int argc, char *argv[]){
 	double ax, ay;
 	int column, row, adj_column, adj_row, adj_x, adj_y;
 	double m = 0, mx = 0, my = 0;
+    double aux_atan = 0;
 
 	// check the correct number of arguments
 	if( argc != 5){
@@ -72,7 +73,7 @@ int main(int argc, char *argv[]){
         par[i].x = RND0_1;
         par[i].y = RND0_1;
 
-        printf("par x %lf par y %lf \n", par[i].x, par[i].y);
+        //printf("par x %lf par y %lf \n", par[i].x, par[i].y);
 
         // velocity
         par[i].vx = RND0_1 / ncside / 10.0;
@@ -137,8 +138,8 @@ int main(int argc, char *argv[]){
     		column = (int) (par[i].x * ncside);
     		row = (int) (par[i].y * ncside);
 
-    		printf("column %d   row %d\n", column, row);
-    		printf("x %.2lf y %.2lf\n", par[i].x, par[i].y );
+    		//printf("column %d   row %d\n", column, row);
+    		//printf("x %.2lf y %.2lf\n", par[i].x, par[i].y );
 
 			for(j = -1; j < 2; j++){
 
@@ -213,13 +214,19 @@ int main(int argc, char *argv[]){
 						par[i].fy = 0;
 					}
 
-					printf("atan  %lf\n", atan(dy/dx));
 
-					// calculate force
-					par[i].fx += F*cos(atan(dy/dx));
-					par[i].fy += F*sin(atan(dy/dx));
-					
-					printf("fx %lf   fy %lf\n", par[i].fx, par[i].fy);
+                    //printf("atan  %lf, dx %lf, dy %lf\n", atan(dy/dx), dx, dy);
+                    aux_atan = atan(dy/dx);
+
+
+                    if (!isnan(aux_atan)){
+
+                        // calculate force
+                        par[i].fx += F*cos(aux_atan);
+                        par[i].fy += F*sin(aux_atan);
+
+                    }
+
 				}
 
 			}    	

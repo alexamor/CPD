@@ -40,6 +40,7 @@ int main(int argc, char *argv[]){
 	double ax, ay;
 	int column, row, adj_column, adj_row, adj_x, adj_y;
 	double m = 0, mx = 0, my = 0;
+    double aux_atan = 0;
 
 	//matrix of locks
 	omp_lock_t **my_lock_matrix = NULL;
@@ -183,7 +184,7 @@ int main(int argc, char *argv[]){
 				}
 
     	// calculation of the gravitational force
-#pragma omp parallel for private(i, j, k, column, row, adj_column, adj_row, dx, dy, d2, F)
+#pragma omp parallel for private(i, j, k, column, row, adj_column, adj_row, dx, dy, d2, F, aux_atan)
     	for(i = 0; i < n_part; i++){
 
     		// get location in grid from the position - truncating the float value
@@ -258,7 +259,8 @@ int main(int argc, char *argv[]){
 					if(F == 0)
 						dx = 1;
 
-					//printf("%lf\n", d2 );
+					//printf("d2 %lf\n", d2 );
+                    //printf("m %lf\n", cell_mat[adj_column][adj_row].m);
 
 					// get cartesian components of the gravitational force
 					if ( j == -1 && k == -1 ){
@@ -266,11 +268,19 @@ int main(int argc, char *argv[]){
 						par[i].fy = 0;
 					}
 
-					//printf("atan  %lf\n", atan(dy/dx));
+					//printf("atan  %lf, dx %lf, dy %lf\n", atan(dy/dx), dx, dy);
+                    aux_atan = atan(dy/dx);
 
-					// calculate force
-					par[i].fx += F*cos(atan(dy/dx));
-					par[i].fy += F*sin(atan(dy/dx));
+
+                    if (!isnan(aux_atan)){
+
+                        // calculate force
+                        par[i].fx += F*cos(aux_atan);
+                        par[i].fy += F*sin(aux_atan);
+
+                    }
+
+
 
 					//printf("fx %lf   fy %lf\n", par[i].fx, par[i].fy);
 				}
@@ -317,7 +327,7 @@ int main(int argc, char *argv[]){
 
     	}
 
-    	printf("Finished iteration: %d\n", t);
+    	//printf("Finished iteration: %d\n", t);
 
     }
 
