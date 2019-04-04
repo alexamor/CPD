@@ -121,27 +121,6 @@ int main(int argc, char *argv[]){
     }
 
 
-
-    // memory allocation of the locks matrix
-    my_lock_matrix = (omp_lock_t **) malloc( sizeof(omp_lock_t *)* ncside);
-    if (my_lock_matrix == NULL){
-    	printf("No memory available for the number of locks required.\n");
-    	exit(0);
-    }
-#pragma omp parallel for
-    for(i = 0; i < ncside; i++){
-
-    	my_lock_matrix[i] = (omp_lock_t *) malloc( sizeof(omp_lock_t) * ncside);
-
-	}
-
-#pragma omp parallel for private(i,j)
-	for (i = 0; i < ncside; i++)
-		for (j = 0; j < ncside; j++)
-		{
-			omp_init_lock(&my_lock_matrix[i][j]);
-		}
-
     // cycle of time step iterations
     for(t = 0; t < n_tstep; t++){
 
@@ -368,22 +347,13 @@ int main(int argc, char *argv[]){
     printf("%.2lf %.2lf\n", par[0].x, par[0].y );
     printf("%.2lf %.2lf\n", mx, my );
 
-#pragma omp parallel for private(i,j)
-	for (i = 0; i < ncside; i++)
-		for (j = 0; j < ncside; j++)
-		{
-			omp_destroy_lock(&my_lock_matrix[i][j]);
-		}
-
     // freeing the allocated memory
     free(par);
 #pragma omp parallel for
     for (i = 0; i < ncside; i++){
     	free(cell_mat[i]);
-    	free(my_lock_matrix[i]);
     }
     free(cell_mat);
-    free(my_lock_matrix);
 
 	return 0;
 }
