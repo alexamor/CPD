@@ -1,4 +1,4 @@
 <OPARIRC 1.0>
-14
-simpar.c
-1 14 4
+11
+simpar-omp.c
+1 11 4

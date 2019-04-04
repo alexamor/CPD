@@ -12,13 +12,10 @@ extern struct ompregdescr omp_rd_8;
 extern struct ompregdescr omp_rd_9;
 extern struct ompregdescr omp_rd_10;
 extern struct ompregdescr omp_rd_11;
-extern struct ompregdescr omp_rd_12;
-extern struct ompregdescr omp_rd_13;
-extern struct ompregdescr omp_rd_14;
 
-int POMP_MAX_ID = 15;
+int POMP_MAX_ID = 12;
 
-struct ompregdescr* pomp_rd_table[15] = {
+struct ompregdescr* pomp_rd_table[12] = {
   0,
   &omp_rd_1,
   &omp_rd_2,
@@ -31,7 +28,4 @@ struct ompregdescr* pomp_rd_table[15] = {
   &omp_rd_9,
   &omp_rd_10,
   &omp_rd_11,
-  &omp_rd_12,
-  &omp_rd_13,
-  &omp_rd_14,
 };

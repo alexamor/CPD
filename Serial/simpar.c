@@ -204,7 +204,7 @@ int main(int argc, char *argv[]){
 
 
 					// calculate distance and gravitational force
-					d2 = pow( dx, 2) + pow( dy, 2) ;
+					d2 = dx*dx + dy*dy ;
 
 					// check to see if distance is minimal
 					if (d2 < EPSLON)
@@ -225,24 +225,24 @@ int main(int argc, char *argv[]){
 					}
 
 
-                    //printf("atan  %lf, dx %lf, dy %lf\n", atan(dy/dx), dx, dy);
-                    aux_atan = atan(dy/dx);
+          //printf("atan  %lf, dx %lf, dy %lf\n", atan(dy/dx), dx, dy);
+          aux_atan = atan(dy/dx);
 
 
-                    if (!isnan(aux_atan)){
+          if (!isnan(aux_atan)){
 
-                        // calculate force
-                        par[i].fx += F*cos(aux_atan);
-                        par[i].fy += F*sin(aux_atan);
+              // calculate force
+              par[i].fx += F*cos(aux_atan);
+              par[i].fy += F*sin(aux_atan);
 
-                    }
+          }
 
 				}
 
 			}
 
 
-    	}
+    }
 
     	// calculation of new velocity and position
     	for(i = 0; i < n_part; i++){
