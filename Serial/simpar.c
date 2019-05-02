@@ -37,7 +37,6 @@ int main(int argc, char *argv[]){
 	double ax, ay;
 	int column, row, adj_column, adj_row;
 	double m = 0, mx = 0, my = 0;
-    double aux_atan = 0;
 
 	// check the correct number of arguments
 	if( argc != 5){
@@ -208,9 +207,6 @@ int main(int argc, char *argv[]){
 					else
 						F = G *par[i].m*cell_mat[adj_column][adj_row].m / d2;
 
-					//Divide by 0 error check
-					if(F == 0)
-						dx = 1;
 
 					//printf("%lf\n", d2 );
 
@@ -220,18 +216,14 @@ int main(int argc, char *argv[]){
 						par[i].fy = 0;
 					}
 
+					// calculate force
+					if(d2 != 0 && !isnan(d2)){
 
-                    //printf("atan  %lf, dx %lf, dy %lf\n", atan(dy/dx), dx, dy);
-                    aux_atan = atan(dy/dx);
+						par[i].fx += (F*dx)/sqrt(d2);
+						par[i].fy += (F*dy)/sqrt(d2);
 
 
-                    if (!isnan(aux_atan)){
-
-                        // calculate force
-                        par[i].fx += F*cos(aux_atan);
-                        par[i].fy += F*sin(aux_atan);
-
-                    }
+					}
 
 				}
 
