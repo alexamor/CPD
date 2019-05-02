@@ -9,8 +9,7 @@
 // Constant variables and functions
 #define RND0_1 ((double) random() / ((long long)1<<31))
 #define G 6.67408e-11
-#define EPSLON 0.01
-#define NR_OF_SIDES 9
+#define EPSLON 0.0005
 
 // struct that stores the information of each particle
 typedef struct particle_t{
@@ -157,7 +156,6 @@ int main(int argc, char *argv[]){
 
 				adj_column = column + j;
 
-				// TODO ver se conseguimos transformar numa operação matematica atraves do modulo
 				// check if adjacent cells are out of the border and rectify
 				if(adj_column >= ncside){
 					adj_column = 0;
@@ -225,17 +223,17 @@ int main(int argc, char *argv[]){
 					}
 
 
-          //printf("atan  %lf, dx %lf, dy %lf\n", atan(dy/dx), dx, dy);
-          aux_atan = atan(dy/dx);
+                    //printf("atan  %lf, dx %lf, dy %lf\n", atan(dy/dx), dx, dy);
+                    aux_atan = atan(dy/dx);
 
 
-          if (!isnan(aux_atan)){
+                    if (!isnan(aux_atan)){
 
-              // calculate force
-              par[i].fx += F*cos(aux_atan);
-              par[i].fy += F*sin(aux_atan);
+                        // calculate force
+                        par[i].fx += F*cos(aux_atan);
+                        par[i].fy += F*sin(aux_atan);
 
-          }
+                    }
 
 				}
 

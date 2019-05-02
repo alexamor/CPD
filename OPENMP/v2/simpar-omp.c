@@ -42,9 +42,6 @@ int main(int argc, char *argv[]){
 	double m = 0, mx = 0, my = 0;
     double aux_atan = 0;
 
-	//matrix of locks
-	omp_lock_t **my_lock_matrix = NULL;
-
 
 
 	// check the correct number of arguments
@@ -144,18 +141,18 @@ int main(int argc, char *argv[]){
 
 
     		// average calculated progressively without needing to store every x and y value
-				#pragma omp atomic
+		#pragma omp atomic
     		cell_mat[column][row].y += par[i].m * par[i].y;
-				#pragma omp atomic
+		#pragma omp atomic
 				cell_mat[column][row].x += par[i].m * par[i].x;
 
     		// total mass
-				#pragma omp atomic
+		#pragma omp atomic
     		cell_mat[column][row].m += par[i].m;
 
     	}
 
-			#pragma omp parallel for private(i, j)
+		#pragma omp parallel for private(i, j)
 			for(i = 0; i < ncside; i++)
 				for(j = 0; j < ncside; j++){
 					cell_mat[i][j].x /= cell_mat[i][j].m;
@@ -163,7 +160,7 @@ int main(int argc, char *argv[]){
 				}
 
     	// calculation of the gravitational force
-#pragma omp parallel for private(i, j, k, column, row, adj_column, adj_row, dx, dy, d2, F, aux_atan)
+	#pragma omp parallel for private(i, j, k, column, row, adj_column, adj_row, dx, dy, d2, F, aux_atan)
     	for(i = 0; i < n_part; i++){
 
     		// get location in grid from the position - truncating the float value
