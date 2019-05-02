@@ -35,7 +35,7 @@ int main(int argc, char *argv[]){
 	int i, j, k, t;
 	double F, d2, dx, dy;
 	double ax, ay;
-	int column, row, adj_column, adj_row, adj_x, adj_y;
+	int column, row, adj_column, adj_row;
 	double m = 0, mx = 0, my = 0;
     double aux_atan = 0;
 
@@ -116,28 +116,28 @@ int main(int argc, char *argv[]){
     		}
 
     	// calculation of the mass center
-			for(i = 0; i < n_part; i++){
+		for(i = 0; i < n_part; i++){
 
-				// get location in grid from the position - truncating the float value
-				column = (int) (par[i].x * ncside);
-				row = (int) (par[i].y * ncside);
+			// get location in grid from the position - truncating the float value
+			column = (int) (par[i].x * ncside);
+			row = (int) (par[i].y * ncside);
 
 
 
-				// average calculated progressively without needing to store every x and y value
-				cell_mat[column][row].y += par[i].m * par[i].y;
-				cell_mat[column][row].x += par[i].m * par[i].x;
+			// average calculated progressively without needing to store every x and y value
+			cell_mat[column][row].y += par[i].m * par[i].y;
+			cell_mat[column][row].x += par[i].m * par[i].x;
 
-				// total mass
-				cell_mat[column][row].m += par[i].m;
+			// total mass
+			cell_mat[column][row].m += par[i].m;
 
+		}
+
+		for(i = 0; i < ncside; i++)
+			for(j = 0; j < ncside; j++){
+				cell_mat[i][j].x /= cell_mat[i][j].m;
+				cell_mat[i][j].y /= cell_mat[i][j].m;
 			}
-
-			for(i = 0; i < ncside; i++)
-				for(j = 0; j < ncside; j++){
-					cell_mat[i][j].x /= cell_mat[i][j].m;
-					cell_mat[i][j].y /= cell_mat[i][j].m;
-				}
 
 
     	// calculation of the gravitational force
@@ -187,14 +187,12 @@ int main(int argc, char *argv[]){
 					// calculate distances when the cells are out of borders
 					if(j == -1 && adj_column == ncside - 1)
 						dx =  cell_mat[adj_column][adj_row].x - par[i].x - 1;
-
-					if(j == 1 && adj_column == 0)
+					else if(j == 1 && adj_column == 0)
 						dx = 1 + (cell_mat[adj_column][adj_row].x - par[i].x);
 
 					if(k == 1 && adj_row == 0)
 						dy = cell_mat[adj_column][adj_row].y - par[i].y + 1;
-
-					if(k == -1 && adj_row == ncside - 1)
+					else if(k == -1 && adj_row == ncside - 1)
 						dy = 1 + (cell_mat[adj_column][adj_row].y - par[i].y);
 
 
@@ -239,44 +237,50 @@ int main(int argc, char *argv[]){
 
 			}
 
+			if( par[i].fx != 0){
+				// get acceleration
+    			ax = par[i].fx / par[i].m;
 
-    }
+				// position
+    			par[i].x += par[i].vx + ax;
 
-    	// calculation of new velocity and position
-    	for(i = 0; i < n_part; i++){
-
-    		// get acceleration
-    		ax = par[i].fx / par[i].m;
-    		ay = par[i].fy / par[i].m;
-
-
-    		//printf("fx %lf   fy %lf\n", par[i].fx, par[i].fy);
-    		//printf("ax %lf ay %lf \n", ax, ay);
-
-    		// position
-    		par[i].x += par[i].vx + ax;
-    		par[i].y += par[i].vy + ay;
-
-    		if(par[i].x < 0){
-    			par[i].x += 1;
-    		}
-    		if(par[i].x > 1){
-    			par[i].x -= 1;
-    		}
-
-    		if(par[i].y < 0){
-    			par[i].y += 1;
-    		}
-    		if(par[i].y > 1){
-    			par[i].y -= 1;
-    		}
-
-    		// velocity
-    		par[i].vx += ax;
-    		par[i].vy += ay;
+				if(par[i].x < 0){
+    				par[i].x += 1;
+    			}
+    			else if(par[i].x > 1){
+    				par[i].x -= 1;
+    			}
 
 
-    	}
+				// velocity
+				par[i].vx += ax;
+
+			}
+
+			if( par[i].fy != 0){
+
+				ay = par[i].fy / par[i].m;
+
+
+				//printf("fx %lf   fy %lf\n", par[i].fx, par[i].fy);
+				//printf("ax %lf ay %lf \n", ax, ay);
+
+				
+				par[i].y += par[i].vy + ay;
+
+
+
+				if(par[i].y < 0){
+					par[i].y += 1;
+				}
+				else if(par[i].y > 1){
+					par[i].y -= 1;
+				}
+
+				par[i].vy += ay;
+			}
+
+   		}
 
     }
 
