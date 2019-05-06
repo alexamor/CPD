@@ -229,52 +229,59 @@ int main(int argc, char *argv[]){
 
 			}
 
-			if( par[i].fx != 0){
-				// get acceleration
-    			ax = par[i].fx / par[i].m;
-
-				// position
-    			par[i].x += par[i].vx + ax;
-
-				if(par[i].x < 0){
-    				par[i].x += 1;
-    			}
-    			else if(par[i].x > 1){
-    				par[i].x -= 1;
-    			}
-
-
-				// velocity
-				par[i].vx += ax;
-
-			}
-
-			if( par[i].fy != 0){
-
-				ay = par[i].fy / par[i].m;
-
-
-				//printf("fx %lf   fy %lf\n", par[i].fx, par[i].fy);
-				//printf("ax %lf ay %lf \n", ax, ay);
-
-				
-				par[i].y += par[i].vy + ay;
-
-
-
-				if(par[i].y < 0){
-					par[i].y += 1;
-				}
-				else if(par[i].y > 1){
-					par[i].y -= 1;
-				}
-
-				par[i].vy += ay;
-			}
 
    		}
 
+   		// get new positions
+    	for(i = 0; i < n_part; i++){
+
+			// get acceleration
+			ax = par[i].fx / par[i].m;
+			ay = par[i].fy / par[i].m;
+
+			// position
+			par[i].x += par[i].vx + ax;
+			par[i].y += par[i].vy + ay;
+
+			if(par[i].x < 0){
+				par[i].x += 1;
+			}
+			else if(par[i].x > 1){
+				par[i].x -= 1;
+			}
+
+			if(par[i].y < 0){
+				par[i].y += 1;
+			}
+			else if(par[i].y > 1){
+				par[i].y -= 1;
+			}
+
+
+			// velocity
+			par[i].vx += ax;
+			par[i].vy += ay;
+
+
+
+			//printf("fx %lf   fy %lf\n", par[i].fx, par[i].fy);
+			//printf("ax %lf ay %lf \n", ax, ay);
+
+			
+			
+
+
+
+
+
+
+
     }
+
+    }
+
+
+
 
 
     // calculate final mass center
