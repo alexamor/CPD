@@ -12,8 +12,8 @@
 #define G 6.67408e-11
 #define EPSLON 0.0005
 
-#define BLOCK_LOW (id,p,n) ((id)*(n)/(p))
-#define BLOCK_HIGH (id,p,n) (BLOCK_LOW((id) + 1, p, n) - 1)
+#define BLOCK_LOW(id,p,n) ((id)*(n)/(p))
+#define BLOCK_HIGH(id,p,n) (BLOCK_LOW((id) + 1, p, n) - 1)
 #define BLOCK_SIZE(id, p, n) (BLOCK_HIGH(id, p, n) - BLOCK_LOW(id, p, n) + 1)
 #define BLOCK_OWNER(index, p, n) (((p)*((index) + 1) - 1) / (n))
 
@@ -33,13 +33,7 @@ typedef struct cell{
 } cell;
 
 
-void scatterPart(*particle_t par, int * counts, int * disp, *particle_t sub_par, int size){
-	MPI_Scatterv(par.x, counts, disp, MPI_DOUBLE, sub_par.x, size, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-	MPI_Scatterv(par.y, counts, disp, MPI_DOUBLE, sub_par.y, size, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-	MPI_Scatterv(par.vx, counts, disp, MPI_DOUBLE, sub_par.vx, size, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-	MPI_Scatterv(par.vy, counts, disp, MPI_DOUBLE, sub_par.vy, size, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-	MPI_Scatterv(par.m, counts, disp, MPI_DOUBLE, sub_par.m, size, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-}
+//void scatterPart(particle_t * par, int * counts, int * disp, particle_t * sub_par, int size);
 
 
 int main(int argc, char *argv[]){
@@ -48,12 +42,12 @@ int main(int argc, char *argv[]){
 	particle_t *par = NULL, *sub_par = NULL;
 	int *counts, *disp;
 	int size;
-	cell **cell_mat = NULL;
+	cell *cell_mat = NULL, *sub_cell_mat;
 	int i, j, k, t;
 	double F, d2, dx, dy;
 	double ax, ay;
 	int column, row, adj_column, adj_row;
-	double m = 0, mx = 0, my = 0;
+	double m = 0, sub_m = 0, mx = 0, sub_mx = 0, my = 0, sub_my = 0;
 	int id, nprocs;
 
 	// check the correct number of arguments
@@ -107,13 +101,13 @@ int main(int argc, char *argv[]){
 	}
 
 	if(!id){
-		for(i = 0; i < nprocs, i++){
+		for(i = 0; i < nprocs; i++){
 			counts[i] = BLOCK_SIZE(id, nprocs, n_part - 1);
 		}
 
-		disp[0] = n_part - counts[0];
-		for(i = 1; i < nprocs, i++){
-			disp[i] = disp[i-1] - counts[i];
+		disp[0] = 0;
+		for(i = 1; i < nprocs; i++){
+			disp[i] = disp[i-1] + counts[i -1];
 		}
 	}
 
@@ -151,16 +145,56 @@ int main(int argc, char *argv[]){
 	        // zero the force
 	        par[i].fx = 0;
 	        par[i].fy = 0;
-	    }		
+	    }
+
 	}
 
+	////Create MPI type of particle
+    const int par_nitems = 7;
+    int par_blocklengths[7] = {1,1,1,1,1,1,1,};
+    MPI_Datatype par_types[7] = {MPI_DOUBLE, MPI_DOUBLE, MPI_DOUBLE, MPI_DOUBLE, MPI_DOUBLE, MPI_DOUBLE, MPI_DOUBLE};
+    MPI_Datatype mpi_par_type;
+    MPI_Aint par_offsets[7];
+
+    par_offsets[0] = offsetof(particle_t, x);
+    par_offsets[0] = offsetof(particle_t, y);
+    par_offsets[0] = offsetof(particle_t, vx);
+    par_offsets[0] = offsetof(particle_t, vy);
+    par_offsets[0] = offsetof(particle_t, m);
+    par_offsets[0] = offsetof(particle_t, fx);
+    par_offsets[0] = offsetof(particle_t, fy);
+
+    MPI_Type_create_struct(par_nitems, par_blocklengths, par_offsets, par_types, &mpi_par_type);
+    MPI_Type_commit(&mpi_par_type);
+    
+    //scatterPart(par, counts, disp, sub_par, size);	
+
+    ////Create MPI type of cell
+    const int cell_nitems = 3;
+    int cell_blocklengths[3] = {1,1,1};
+    MPI_Datatype cell_types[3] = {MPI_DOUBLE, MPI_DOUBLE, MPI_DOUBLE};
+    MPI_Datatype mpi_cell_type;
+    MPI_Aint cell_offsets[3];
+
+    cell_offsets[0] = offsetof(cell, x);
+	cell_offsets[1] = offsetof(cell, y);
+    cell_offsets[2] = offsetof(cell, m);
+
+    MPI_Type_create_struct(cell_nitems, cell_blocklengths, cell_offsets, cell_types, &mpi_cell_type);
+    MPI_Type_commit(&mpi_cell_type);
+
+
+    MPI_Scatterv(par, counts, disp, mpi_par_type, sub_par, size, mpi_par_type, 0, MPI_COMM_WORLD);
+
+
     // memory allocation for each cell
-    cell_mat = (cell **) malloc( sizeof(cell*) * ncside);
+    cell_mat = (cell *) calloc( ncside * ncside, sizeof(cell));
     if (cell_mat == NULL){
     	printf("No memory available for the number of cells required.\n");
     	MPI_Finalize();
     	exit(0);
     }
+    /*
     for(i = 0; i < ncside; i++){
 
     	// initialization to zero
@@ -172,6 +206,14 @@ int main(int argc, char *argv[]){
     		exit(0);
     	}
     }
+    */
+
+    sub_cell_mat = (cell *) calloc( ncside * ncside, sizeof(cell));
+    if (sub_cell_mat == NULL){
+    	printf("No memory available for the number of cells required.\n");
+    	MPI_Finalize();
+    	exit(0);
+    }
 
 
     // cycle of time step iterations
@@ -180,44 +222,51 @@ int main(int argc, char *argv[]){
     	// zeroing the mass centers
     	for(i = 0; i < ncside; i++)
     		for(j = 0; j < ncside; j++){
-    			cell_mat[i][j].x = 0;
-    			cell_mat[i][j].y = 0;
-    			cell_mat[i][j].m = 0;
+    			sub_cell_mat[i * ncside + j].x = 0;
+    			sub_cell_mat[i * ncside + j].y = 0;
+    			sub_cell_mat[i * ncside + j].m = 0;
     		}
 
 
 
     	// calculation of the mass center
-		for(i = 0; i < n_part; i++){
+		for(i = 0; i < size; i++){
 
 			// get location in grid from the position - truncating the float value
-			column = (int) (par[i].x * ncside);
-			row = (int) (par[i].y * ncside);
+			column = (int) (sub_par[i].x * ncside);
+			row = (int) (sub_par[i].y * ncside);
 
 
 
 			// average calculated progressively without needing to store every x and y value
-			cell_mat[column][row].y += par[i].m * par[i].y;
-			cell_mat[column][row].x += par[i].m * par[i].x;
+			sub_cell_mat[column * ncside + row].y += sub_par[i].m * sub_par[i].y;
+			sub_cell_mat[column * ncside + row].x += sub_par[i].m * sub_par[i].x;
 
 			// total mass
-			cell_mat[column][row].m += par[i].m;
+			sub_cell_mat[column * ncside + row].m += sub_par[i].m;
 
 		}
 
-		for(i = 0; i < ncside; i++)
-			for(j = 0; j < ncside; j++){
-				cell_mat[i][j].x /= cell_mat[i][j].m;
-				cell_mat[i][j].y /= cell_mat[i][j].m;
-			}
+		//Perform redution on matrix of cells calculations
+		MPI_Reduce(sub_cell_mat, cell_mat, ncside * ncside, mpi_cell_type, MPI_SUM, 0, MPI_COMM_WORLD);
 
+		if(!id){
+			for(i = 0; i < ncside; i++)
+				for(j = 0; j < ncside; j++){
+					cell_mat[i * ncside + j].x /= cell_mat[i * ncside + j].m;
+					cell_mat[i * ncside + j].y /= cell_mat[i * ncside + j].m;
+				}			
+		}
+
+		//send cell data to everyone
+		MPI_Bcast(cell_mat, ncside* ncside, mpi_cell_type, 0, MPI_COMM_WORLD);
 
     	// calculation of the gravitational force
-    	for(i = 0; i < n_part; i++){
+    	for(i = 0; i < size; i++){
 
     		// get location in grid from the position - truncating the float value
-    		column = (int) (par[i].x * ncside);
-    		row = (int) (par[i].y * ncside);
+    		column = (int) (sub_par[i].x * ncside);
+    		row = (int) (sub_par[i].y * ncside);
 
     		//printf("column %d   row %d\n", column, row);
     		//printf("x %.2lf y %.2lf\n", par[i].x, par[i].y );
@@ -251,21 +300,21 @@ int main(int argc, char *argv[]){
 					}
 
 					// calculate usual distances
-					dx = cell_mat[adj_column][adj_row].x - par[i].x;
-					dy = cell_mat[adj_column][adj_row].y - par[i].y;
+					dx = cell_mat[adj_column * ncside + adj_row].x - sub_par[i].x;
+					dy = cell_mat[adj_column * ncside + adj_row].y - sub_par[i].y;
 
-					//printf("mat.y %lf  par.y %lf\n", cell_mat[adj_column][adj_row].y, par[i].y);
+					//printf("mat.y %lf  par.y %lf\n", cell_mat[adj_column * ncside + adj_row].y, par[i].y);
 
 					// calculate distances when the cells are out of borders
 					if(j == -1 && adj_column == ncside - 1)
-						dx =  cell_mat[adj_column][adj_row].x - par[i].x - 1;
+						dx =  cell_mat[adj_column * ncside + adj_row].x - sub_par[i].x - 1;
 					else if(j == 1 && adj_column == 0)
-						dx = 1 + (cell_mat[adj_column][adj_row].x - par[i].x);
+						dx = 1 + (cell_mat[adj_column * ncside + adj_row].x - sub_par[i].x);
 
 					if(k == 1 && adj_row == 0)
-						dy = cell_mat[adj_column][adj_row].y - par[i].y + 1;
+						dy = cell_mat[adj_column * ncside + adj_row].y - sub_par[i].y + 1;
 					else if(k == -1 && adj_row == ncside - 1)
-						dy = 1 + (cell_mat[adj_column][adj_row].y - par[i].y);
+						dy = 1 + (cell_mat[adj_column * ncside + adj_row].y - sub_par[i].y);
 
 
 					//printf("dx %lf     dy %lf\n", dx, dy);
@@ -278,22 +327,22 @@ int main(int argc, char *argv[]){
 					if (d2 < EPSLON)
 						F = 0;
 					else
-						F = G *par[i].m*cell_mat[adj_column][adj_row].m / d2;
+						F = G * sub_par[i].m * cell_mat[adj_column * ncside + adj_row].m / d2;
 
 
 					//printf("%lf\n", d2 );
 
 					// get cartesian components of the gravitational force
 					if ( j == -1 && k == -1 ){
-						par[i].fx = 0;
-						par[i].fy = 0;
+						sub_par[i].fx = 0;
+						sub_par[i].fy = 0;
 					}
 
 					// calculate force
 					if(d2 != 0 && !isnan(d2)){
 
-						par[i].fx += (F*dx)/sqrt(d2);
-						par[i].fy += (F*dy)/sqrt(d2);
+						sub_par[i].fx += (F*dx)/sqrt(d2);
+						sub_par[i].fy += (F*dy)/sqrt(d2);
 
 
 					}
@@ -306,34 +355,34 @@ int main(int argc, char *argv[]){
    		}
 
    		// get new positions
-    	for(i = 0; i < n_part; i++){
+    	for(i = 0; i < size; i++){
 
 			// get acceleration
-			ax = par[i].fx / par[i].m;
-			ay = par[i].fy / par[i].m;
+			ax = sub_par[i].fx / sub_par[i].m;
+			ay = sub_par[i].fy / sub_par[i].m;
 
 			// position
-			par[i].x += par[i].vx + ax;
-			par[i].y += par[i].vy + ay;
+			sub_par[i].x += sub_par[i].vx + ax;
+			sub_par[i].y += sub_par[i].vy + ay;
 
-			if(par[i].x < 0){
-				par[i].x += 1;
+			if(sub_par[i].x < 0){
+				sub_par[i].x += 1;
 			}
-			else if(par[i].x > 1){
-				par[i].x -= 1;
+			else if(sub_par[i].x > 1){
+				sub_par[i].x -= 1;
 			}
 
-			if(par[i].y < 0){
-				par[i].y += 1;
+			if(sub_par[i].y < 0){
+				sub_par[i].y += 1;
 			}
-			else if(par[i].y > 1){
-				par[i].y -= 1;
+			else if(sub_par[i].y > 1){
+				sub_par[i].y -= 1;
 			}
 
 
 			// velocity
-			par[i].vx += ax;
-			par[i].vy += ay;
+			sub_par[i].vx += ax;
+			sub_par[i].vy += ay;
 
 
 
@@ -353,18 +402,22 @@ int main(int argc, char *argv[]){
 
 
     // calculate final mass center
-    for(i = 0; i < n_part; i++){
+    for(i = 0; i < size; i++){
 
     	    // average calculated progressively without needing to store every x and y value
-    		mx += par[i].m * par[i].x;
-    		my += par[i].m * par[i].y;
+    		sub_mx += sub_par[i].m * sub_par[i].x;
+    		sub_my += sub_par[i].m * sub_par[i].y;
 
     		//printf("mx %lf my %lf\n", par[i].x, par[i].y );
 
     		// total mass
-    		m += par[i].m;
+    		sub_m += sub_par[i].m;
 
     }
+
+    MPI_Reduce(&sub_mx, &mx, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+	MPI_Reduce(&sub_my, &my, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+	MPI_Reduce(&sub_m, &m, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
 
 	//Note: Altrough is faster to average the cells the result ends up poorly rounded, failing the correct answer for +-0.01
     /*
@@ -372,30 +425,46 @@ int main(int argc, char *argv[]){
     {
     	for(j = 0; j < ncside; j++)
     	{
-    		mx += cell_mat[i][j].x * cell_mat[i][j].m;
-    		my += cell_mat[i][j].y * cell_mat[i][j].m;
+    		mx += cell_mat[i * ncside + j].x * cell_mat[i * ncside + j].m;
+    		my += cell_mat[i * ncside + j].y * cell_mat[i * ncside + j].m;
 
-    		m += cell_mat[i][j].m;
+    		m += cell_mat[i * ncside + j].m;
     	}
     }
     */
+	if(!id){
+	    mx = mx/m;
+	    my = my/m;
 
-    mx = mx/m;
-    my = my/m;
-
-    // output
-    printf("%.2lf %.2lf\n", par[0].x, par[0].y );
-    printf("%.2lf %.2lf\n", mx, my );
+	    // output
+	    printf("%.2lf %.2lf\n", par[0].x, par[0].y );
+	    printf("%.2lf %.2lf\n", mx, my );	
+	}
 
 
     // freeing the allocated memory
     free(par);
+    free(sub_par);
+    free(counts);
+    free(disp);
+    /*
     for (i = 0; i < ncside; i++){
     	free(cell_mat[i]);
     }
+    */
     free(cell_mat);
+    free(sub_cell_mat);
 
     MPI_Finalize();
 
 	return 0;
 }
+/*
+void scatterPart(particle_t * par, int * counts, int * disp, particle_t * sub_par, int size){
+	MPI_Scatterv(par.x, counts, disp, MPI_DOUBLE, sub_par.x, size, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+	MPI_Scatterv(par.y, counts, disp, MPI_DOUBLE, sub_par.y, size, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+	MPI_Scatterv(par.vx, counts, disp, MPI_DOUBLE, sub_par.vx, size, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+	MPI_Scatterv(par.vy, counts, disp, MPI_DOUBLE, sub_par.vy, size, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+	MPI_Scatterv(par.m, counts, disp, MPI_DOUBLE, sub_par.m, size, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+}
+*/
