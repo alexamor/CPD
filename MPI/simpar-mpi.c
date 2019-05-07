@@ -33,10 +33,21 @@ typedef struct cell{
 } cell;
 
 
+void scatterPart(*particle_t par, int * counts, int * disp, *particle_t sub_par, int size){
+	MPI_Scatterv(par.x, counts, disp, MPI_DOUBLE, sub_par.x, size, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+	MPI_Scatterv(par.y, counts, disp, MPI_DOUBLE, sub_par.y, size, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+	MPI_Scatterv(par.vx, counts, disp, MPI_DOUBLE, sub_par.vx, size, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+	MPI_Scatterv(par.vy, counts, disp, MPI_DOUBLE, sub_par.vy, size, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+	MPI_Scatterv(par.m, counts, disp, MPI_DOUBLE, sub_par.m, size, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+}
+
+
 int main(int argc, char *argv[]){
 	long seed, ncside;
 	long long n_part, n_tstep;
-	particle_t *par = NULL;
+	particle_t *par = NULL, *sub_par = NULL;
+	int *counts, *disp;
+	int size;
 	cell **cell_mat = NULL;
 	int i, j, k, t;
 	double F, d2, dx, dy;
@@ -48,6 +59,7 @@ int main(int argc, char *argv[]){
 	// check the correct number of arguments
 	if( argc != 5){
 		printf("Number of arguments invalid. Please check the way you're running the program, as follows: ./simpar seed ncside n_part n_tstep \n" );
+		MPI_Finalize();
 		exit(0);
 	}
 
@@ -74,6 +86,45 @@ int main(int argc, char *argv[]){
 	par = (particle_t *) malloc( sizeof(particle_t) * n_part);
 	if (par == NULL){
 		printf("No memory available for the number of particles required.\n");
+		MPI_Finalize();
+		exit(0);
+	}
+
+	// allocation of size of sub array of particles
+	counts = (int *) malloc( sizeof(int) * nprocs);
+	if (counts == NULL){
+		printf("No memory available for the number of particles required.\n");
+		MPI_Finalize();
+		exit(0);
+	}
+
+	// allocation of offsets of sizes
+	disp = (int *) malloc( sizeof(int) * nprocs);
+	if (disp == NULL){
+		printf("No memory available for the number of particles required.\n");
+		MPI_Finalize();
+		exit(0);
+	}
+
+	if(!id){
+		for(i = 0; i < nprocs, i++){
+			counts[i] = BLOCK_SIZE(id, nprocs, n_part - 1);
+		}
+
+		disp[0] = n_part - counts[0];
+		for(i = 1; i < nprocs, i++){
+			disp[i] = disp[i-1] - counts[i];
+		}
+	}
+
+	size = BLOCK_SIZE(id, nprocs, n_part - 1);
+
+
+	// allocation of memory for the particle_t sub array
+	sub_par = (particle_t *) malloc( sizeof(particle_t) * size);
+	if (par == NULL){
+		printf("No memory available for the number of particles required.\n");
+		MPI_Finalize();
 		exit(0);
 	}
 
@@ -107,6 +158,7 @@ int main(int argc, char *argv[]){
     cell_mat = (cell **) malloc( sizeof(cell*) * ncside);
     if (cell_mat == NULL){
     	printf("No memory available for the number of cells required.\n");
+    	MPI_Finalize();
     	exit(0);
     }
     for(i = 0; i < ncside; i++){
@@ -116,6 +168,7 @@ int main(int argc, char *argv[]){
 
     	if (cell_mat[i] == NULL){
     		printf("No memory available for the number of cells required.\n");
+    		MPI_Finalize();
     		exit(0);
     	}
     }
@@ -131,6 +184,8 @@ int main(int argc, char *argv[]){
     			cell_mat[i][j].y = 0;
     			cell_mat[i][j].m = 0;
     		}
+
+
 
     	// calculation of the mass center
 		for(i = 0; i < n_part; i++){
@@ -285,16 +340,11 @@ int main(int argc, char *argv[]){
 			//printf("fx %lf   fy %lf\n", par[i].fx, par[i].fy);
 			//printf("ax %lf ay %lf \n", ax, ay);
 
-			
-			
 
+    	}
 
-
-
-
-
-
-    }
+    	//Wait for everyone before starting new iteration
+    	MPI_Barrier(MPI_COMM_WORLD);
 
     }
 

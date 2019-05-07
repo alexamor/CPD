@@ -31,7 +31,7 @@ int main(int argc, char *argv[]){
 	long seed, ncside;
 	long long n_part, n_tstep;
 	particle_t *par = NULL;
-	cell **cell_mat = NULL;
+	cell *cell_mat = NULL;
 	int i, j, k, t;
 	double F, d2, dx, dy;
 	double ax, ay;
@@ -86,11 +86,12 @@ int main(int argc, char *argv[]){
     }
 
     // memory allocation for each cell
-    cell_mat = (cell **) malloc( sizeof(cell*) * ncside);
+    cell_mat = (cell *) calloc(ncside * ncside, sizeof(cell));
     if (cell_mat == NULL){
     	printf("No memory available for the number of cells required.\n");
     	exit(0);
     }
+    /*
     for(i = 0; i < ncside; i++){
 
     	// initialization to zero
@@ -101,6 +102,7 @@ int main(int argc, char *argv[]){
     		exit(0);
     	}
     }
+    */
 
 
     // cycle of time step iterations
@@ -109,9 +111,9 @@ int main(int argc, char *argv[]){
     	// zeroing the mass centers
     	for(i = 0; i < ncside; i++)
     		for(j = 0; j < ncside; j++){
-    			cell_mat[i][j].x = 0;
-    			cell_mat[i][j].y = 0;
-    			cell_mat[i][j].m = 0;
+    			cell_mat[i * ncside + j].x = 0;
+    			cell_mat[i * ncside + j].y = 0;
+    			cell_mat[i * ncside + j].m = 0;
     		}
 
     	// calculation of the mass center
@@ -124,18 +126,18 @@ int main(int argc, char *argv[]){
 
 
 			// average calculated progressively without needing to store every x and y value
-			cell_mat[column][row].y += par[i].m * par[i].y;
-			cell_mat[column][row].x += par[i].m * par[i].x;
+			cell_mat[column * ncside + row].y += par[i].m * par[i].y;
+			cell_mat[column * ncside + row].x += par[i].m * par[i].x;
 
 			// total mass
-			cell_mat[column][row].m += par[i].m;
+			cell_mat[column * ncside + row].m += par[i].m;
 
 		}
 
 		for(i = 0; i < ncside; i++)
 			for(j = 0; j < ncside; j++){
-				cell_mat[i][j].x /= cell_mat[i][j].m;
-				cell_mat[i][j].y /= cell_mat[i][j].m;
+				cell_mat[i * ncside + j].x /= cell_mat[i * ncside + j].m;
+				cell_mat[i * ncside + j].y /= cell_mat[i * ncside + j].m;
 			}
 
 
@@ -178,21 +180,21 @@ int main(int argc, char *argv[]){
 					}
 
 					// calculate usual distances
-					dx = cell_mat[adj_column][adj_row].x - par[i].x;
-					dy = cell_mat[adj_column][adj_row].y - par[i].y;
+					dx = cell_mat[adj_column * ncside + adj_row].x - par[i].x;
+					dy = cell_mat[adj_column * ncside + adj_row].y - par[i].y;
 
 					//printf("mat.y %lf  par.y %lf\n", cell_mat[adj_column][adj_row].y, par[i].y);
 
 					// calculate distances when the cells are out of borders
 					if(j == -1 && adj_column == ncside - 1)
-						dx =  cell_mat[adj_column][adj_row].x - par[i].x - 1;
+						dx =  cell_mat[adj_column * ncside + adj_row].x - par[i].x - 1;
 					else if(j == 1 && adj_column == 0)
-						dx = 1 + (cell_mat[adj_column][adj_row].x - par[i].x);
+						dx = 1 + (cell_mat[adj_column * ncside + adj_row].x - par[i].x);
 
 					if(k == 1 && adj_row == 0)
-						dy = cell_mat[adj_column][adj_row].y - par[i].y + 1;
+						dy = cell_mat[adj_column * ncside + adj_row].y - par[i].y + 1;
 					else if(k == -1 && adj_row == ncside - 1)
-						dy = 1 + (cell_mat[adj_column][adj_row].y - par[i].y);
+						dy = 1 + (cell_mat[adj_column * ncside + adj_row].y - par[i].y);
 
 
 					//printf("dx %lf     dy %lf\n", dx, dy);
@@ -205,7 +207,7 @@ int main(int argc, char *argv[]){
 					if (d2 < EPSLON)
 						F = 0;
 					else
-						F = G *par[i].m*cell_mat[adj_column][adj_row].m / d2;
+						F = G *par[i].m*cell_mat[adj_column * ncside + adj_row].m / d2;
 
 
 					//printf("%lf\n", d2 );
@@ -267,16 +269,8 @@ int main(int argc, char *argv[]){
 			//printf("fx %lf   fy %lf\n", par[i].fx, par[i].fy);
 			//printf("ax %lf ay %lf \n", ax, ay);
 
-			
-			
 
-
-
-
-
-
-
-    }
+    	}
 
     }
 
@@ -322,9 +316,11 @@ int main(int argc, char *argv[]){
 
     // freeing the allocated memory
     free(par);
+    /*
     for (i = 0; i < ncside; i++){
     	free(cell_mat[i]);
     }
+    */
     free(cell_mat);
 
 	return 0;
