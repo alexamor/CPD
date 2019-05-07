@@ -49,6 +49,7 @@ int main(int argc, char *argv[]){
 	int column, row, adj_column, adj_row;
 	double m = 0, sub_m = 0, mx = 0, sub_mx = 0, my = 0, sub_my = 0;
 	int id, nprocs;
+	double *y_cell, *y_cell_sub, *x_cell, *x_cell_sub, *m_cell, *m_cell_sub;
 
 	// check the correct number of arguments
 	if( argc != 5){
@@ -61,6 +62,9 @@ int main(int argc, char *argv[]){
 	MPI_Init(&argc, &argv);
 	MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
 	MPI_Comm_rank(MPI_COMM_WORLD, &id);
+
+	printf("--Inits\n");
+	fflush(stdout);
 
 
 	// saving the input parameters
@@ -102,16 +106,16 @@ int main(int argc, char *argv[]){
 
 	if(!id){
 		for(i = 0; i < nprocs; i++){
-			counts[i] = BLOCK_SIZE(id, nprocs, n_part - 1);
+			counts[i] = BLOCK_SIZE(i, nprocs, n_part);
 		}
 
 		disp[0] = 0;
 		for(i = 1; i < nprocs; i++){
-			disp[i] = disp[i-1] + counts[i -1];
+			disp[i] = disp[i-1] + counts[i-1];
 		}
 	}
 
-	size = BLOCK_SIZE(id, nprocs, n_part - 1);
+	size = BLOCK_SIZE(id, nprocs, n_part);
 
 
 	// allocation of memory for the particle_t sub array
@@ -121,6 +125,9 @@ int main(int argc, char *argv[]){
 		MPI_Finalize();
 		exit(0);
 	}
+
+	printf("--Memories\n");
+	fflush(stdout);
 
 
 
@@ -183,8 +190,26 @@ int main(int argc, char *argv[]){
     MPI_Type_create_struct(cell_nitems, cell_blocklengths, cell_offsets, cell_types, &mpi_cell_type);
     MPI_Type_commit(&mpi_cell_type);
 
+    printf("--Types\n");
+	fflush(stdout);
 
-    MPI_Scatterv(par, counts, disp, mpi_par_type, sub_par, size, mpi_par_type, 0, MPI_COMM_WORLD);
+	printf("--size -n%d - %d\n", id, size);
+	fflush(stdout);
+
+	MPI_Comm_set_errhandler(MPI_COMM_WORLD, MPI_ERRORS_RETURN);
+
+    int error_code = MPI_Scatterv(par, counts, disp, mpi_par_type, sub_par, size, mpi_par_type, 0, MPI_COMM_WORLD);
+  
+	char error_string[BUFSIZ];    
+	int length_of_error_string;    
+	MPI_Error_string(error_code, error_string, &length_of_error_string);    
+	//fprintf(stdout, "%3d: %s\n", id, error_string);
+
+	printf("++ Scatter  %s\n", error_string);
+	fflush(stdout);  
+
+    printf("--Scatter -n%d\n", id);
+	fflush(stdout);
 
 
     // memory allocation for each cell
@@ -215,6 +240,44 @@ int main(int argc, char *argv[]){
     	exit(0);
     }
 
+    y_cell = (double *) calloc( ncside * ncside, sizeof(double));
+    if (y_cell == NULL){
+    	printf("No memory available for the number of cells required.\n");
+    	MPI_Finalize();
+    	exit(0);
+    }
+    y_cell_sub = (double *) calloc( ncside * ncside, sizeof(double));
+    if (y_cell_sub == NULL){
+    	printf("No memory available for the number of cells required.\n");
+    	MPI_Finalize();
+    	exit(0);
+    }
+
+    x_cell = (double *) calloc( ncside * ncside, sizeof(double));
+    if (x_cell == NULL){
+    	printf("No memory available for the number of cells required.\n");
+    	MPI_Finalize();
+    	exit(0);
+    }
+    x_cell_sub = (double *) calloc( ncside * ncside, sizeof(double));
+    if (x_cell_sub == NULL){
+    	printf("No memory available for the number of cells required.\n");
+    	MPI_Finalize();
+    	exit(0);
+    }
+    m_cell = (double *) calloc( ncside * ncside, sizeof(double));
+    if (m_cell == NULL){
+    	printf("No memory available for the number of cells required.\n");
+    	MPI_Finalize();
+    	exit(0);
+    }
+    m_cell_sub = (double *) calloc( ncside * ncside, sizeof(double));
+    if (m_cell_sub == NULL){
+    	printf("No memory available for the number of cells required.\n");
+    	MPI_Finalize();
+    	exit(0);
+    }
+
 
     // cycle of time step iterations
     for(t = 0; t < n_tstep; t++){
@@ -225,8 +288,13 @@ int main(int argc, char *argv[]){
     			sub_cell_mat[i * ncside + j].x = 0;
     			sub_cell_mat[i * ncside + j].y = 0;
     			sub_cell_mat[i * ncside + j].m = 0;
+    			y_cell[i * ncside + j] = 0;
+    			x_cell[i * ncside + j] = 0;
+    			m_cell[i * ncside + j] = 0;
     		}
 
+		printf("--Zeroes -n%d -i%d\n", id, t);
+		fflush(stdout);
 
 
     	// calculation of the mass center
@@ -236,30 +304,68 @@ int main(int argc, char *argv[]){
 			column = (int) (sub_par[i].x * ncside);
 			row = (int) (sub_par[i].y * ncside);
 
+			printf("--row columns -n%d -i%d\n", id, i);
+			fflush(stdout);
 
-
-			// average calculated progressively without needing to store every x and y value
+			y_cell[column * ncside + row] += sub_par[i].m * sub_par[i].y;
+			x_cell[column * ncside + row] += sub_par[i].m * sub_par[i].x;
+			m_cell[column * ncside + row] += sub_par[i].m;
+			/*// average calculated progressively without needing to store every x and y value
 			sub_cell_mat[column * ncside + row].y += sub_par[i].m * sub_par[i].y;
 			sub_cell_mat[column * ncside + row].x += sub_par[i].m * sub_par[i].x;
 
 			// total mass
-			sub_cell_mat[column * ncside + row].m += sub_par[i].m;
+			sub_cell_mat[column * ncside + row].m += sub_par[i].m;*/
 
 		}
 
+		printf("--Mass center-n%d -i%d\n", id, t);
+		fflush(stdout);
+
 		//Perform redution on matrix of cells calculations
-		MPI_Reduce(sub_cell_mat, cell_mat, ncside * ncside, mpi_cell_type, MPI_SUM, 0, MPI_COMM_WORLD);
+		MPI_Reduce(x_cell, x_cell_sub, ncside * ncside, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+		MPI_Reduce(y_cell, y_cell_sub, ncside * ncside, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+		error_code = MPI_Reduce(m_cell, m_cell_sub, ncside * ncside, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+
+		error_string[BUFSIZ];    
+		length_of_error_string;    
+		MPI_Error_string(error_code, error_string, &length_of_error_string);    
+		//fprintf(stdout, "%3d: %s\n", id, error_string);
+
+		printf("++ Reduce  %s\n", error_string);
+		fflush(stdout);
+
+		printf("--Reduce-n%d\n", id);
+		fflush(stdout);
 
 		if(!id){
 			for(i = 0; i < ncside; i++)
 				for(j = 0; j < ncside; j++){
+					cell_mat[i * ncside + j].x = x_cell_sub[i* ncside + j];
+					cell_mat[i * ncside + j].y = y_cell_sub[i* ncside + j];
+					cell_mat[i * ncside + j].m = m_cell_sub[i* ncside + j];
+
 					cell_mat[i * ncside + j].x /= cell_mat[i * ncside + j].m;
 					cell_mat[i * ncside + j].y /= cell_mat[i * ncside + j].m;
 				}			
 		}
 
+		printf("--Division-n%d\n", id);
+		fflush(stdout);
+
 		//send cell data to everyone
-		MPI_Bcast(cell_mat, ncside* ncside, mpi_cell_type, 0, MPI_COMM_WORLD);
+		error_code = MPI_Bcast(cell_mat, ncside* ncside, mpi_cell_type, 0, MPI_COMM_WORLD);
+
+		error_string[BUFSIZ];    
+		length_of_error_string;    
+		MPI_Error_string(error_code, error_string, &length_of_error_string);    
+		//fprintf(stdout, "%3d: %s\n", id, error_string);
+
+		printf("++ Broad %s\n", error_string);
+		fflush(stdout);
+
+		printf("--Broadcast-n%d\n", id);
+		fflush(stdout);
 
     	// calculation of the gravitational force
     	for(i = 0; i < size; i++){
@@ -388,12 +494,21 @@ int main(int argc, char *argv[]){
 
 			//printf("fx %lf   fy %lf\n", par[i].fx, par[i].fy);
 			//printf("ax %lf ay %lf \n", ax, ay);
+			fflush(stdout);
 
 
     	}
 
     	//Wait for everyone before starting new iteration
-    	MPI_Barrier(MPI_COMM_WORLD);
+    	error_code = MPI_Barrier(MPI_COMM_WORLD);
+
+    	error_string[BUFSIZ];    
+		length_of_error_string;    
+		MPI_Error_string(error_code, error_string, &length_of_error_string);    
+		//fprintf(stdout, "%3d: %s\n", id, error_string);
+
+		printf("++ Barrier -n%d %s\n", id, error_string);
+		fflush(stdout);	
 
     }
 
@@ -447,6 +562,12 @@ int main(int argc, char *argv[]){
     free(sub_par);
     free(counts);
     free(disp);
+    free(y_cell);
+    free(y_cell_sub);
+    free(x_cell);
+    free(x_cell_sub);
+    free(m_cell);
+    free(m_cell_sub);
     /*
     for (i = 0; i < ncside; i++){
     	free(cell_mat[i]);
