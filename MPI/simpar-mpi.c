@@ -298,14 +298,14 @@ int main(int argc, char *argv[]){
 
 		//Perform redution on matrix of cells calculations
 		MPI_Reduce(x_cell, x_cell_sub, ncside * ncside, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-		MPI_Barrier(MPI_COMM_WORLD);   
+		//MPI_Barrier(MPI_COMM_WORLD);   
 
 
 		MPI_Reduce(y_cell, y_cell_sub, ncside * ncside, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-		MPI_Barrier(MPI_COMM_WORLD);
+		//MPI_Barrier(MPI_COMM_WORLD);
 
 		MPI_Reduce(m_cell, m_cell_sub, ncside * ncside, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-		MPI_Barrier(MPI_COMM_WORLD);
+		//MPI_Barrier(MPI_COMM_WORLD);
 
 		if(!id){
 			for(i = 0; i < ncside; i++)
@@ -477,11 +477,11 @@ int main(int argc, char *argv[]){
     }
 
     MPI_Reduce(&sub_mx, &mx, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-    MPI_Barrier(MPI_COMM_WORLD);
+    //MPI_Barrier(MPI_COMM_WORLD);
 	MPI_Reduce(&sub_my, &my, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-	MPI_Barrier(MPI_COMM_WORLD);
+	//MPI_Barrier(MPI_COMM_WORLD);
 	MPI_Reduce(&sub_m, &m, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-	MPI_Barrier(MPI_COMM_WORLD);
+	//MPI_Barrier(MPI_COMM_WORLD);
 
 	//Note: Altrough is faster to average the cells the result ends up poorly rounded, failing the correct answer for +-0.01
     /*
