@@ -5,6 +5,8 @@
 #include <stdlib.h>
 #include <math.h>
 #include <mpi.h>
+#include <omp.h>
+
 
 
 // Constant variables and functions
@@ -50,6 +52,9 @@ int main(int argc, char *argv[]){
 	double m = 0, sub_m = 0, mx = 0, sub_mx = 0, my = 0, sub_my = 0;
 	int id, nprocs;
 	double *y_cell, *y_cell_sub, *x_cell, *x_cell_sub, *m_cell, *m_cell_sub;
+	char error_string[BUFSIZ];    
+	int length_of_error_string, error_code, namelen;
+	char processor_name[MPI_MAX_PROCESSOR_NAME];
 
 	// check the correct number of arguments
 	if( argc != 5){
@@ -62,9 +67,7 @@ int main(int argc, char *argv[]){
 	MPI_Init(&argc, &argv);
 	MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
 	MPI_Comm_rank(MPI_COMM_WORLD, &id);
-
-	printf("--Inits\n");
-	fflush(stdout);
+	MPI_Get_processor_name(processor_name, &namelen);
 
 
 	// saving the input parameters
@@ -126,10 +129,6 @@ int main(int argc, char *argv[]){
 		exit(0);
 	}
 
-	printf("--Memories\n");
-	fflush(stdout);
-
-
 
 	// creation of particles - initialization of their position, velocity and mass
 	if(!id)
@@ -164,12 +163,12 @@ int main(int argc, char *argv[]){
     MPI_Aint par_offsets[7];
 
     par_offsets[0] = offsetof(particle_t, x);
-    par_offsets[0] = offsetof(particle_t, y);
-    par_offsets[0] = offsetof(particle_t, vx);
-    par_offsets[0] = offsetof(particle_t, vy);
-    par_offsets[0] = offsetof(particle_t, m);
-    par_offsets[0] = offsetof(particle_t, fx);
-    par_offsets[0] = offsetof(particle_t, fy);
+    par_offsets[1] = offsetof(particle_t, y);
+    par_offsets[2] = offsetof(particle_t, vx);
+    par_offsets[3] = offsetof(particle_t, vy);
+    par_offsets[4] = offsetof(particle_t, m);
+    par_offsets[5] = offsetof(particle_t, fx);
+    par_offsets[6] = offsetof(particle_t, fy);
 
     MPI_Type_create_struct(par_nitems, par_blocklengths, par_offsets, par_types, &mpi_par_type);
     MPI_Type_commit(&mpi_par_type);
@@ -190,26 +189,11 @@ int main(int argc, char *argv[]){
     MPI_Type_create_struct(cell_nitems, cell_blocklengths, cell_offsets, cell_types, &mpi_cell_type);
     MPI_Type_commit(&mpi_cell_type);
 
-    printf("--Types\n");
-	fflush(stdout);
+	//MPI_Comm_set_errhandler(MPI_COMM_WORLD, MPI_ERRORS_RETURN);
 
-	printf("--size -n%d - %d\n", id, size);
-	fflush(stdout);
+    MPI_Scatterv(par, counts, disp, mpi_par_type, sub_par, size, mpi_par_type, 0, MPI_COMM_WORLD);
+    
 
-	MPI_Comm_set_errhandler(MPI_COMM_WORLD, MPI_ERRORS_RETURN);
-
-    int error_code = MPI_Scatterv(par, counts, disp, mpi_par_type, sub_par, size, mpi_par_type, 0, MPI_COMM_WORLD);
-  
-	char error_string[BUFSIZ];    
-	int length_of_error_string;    
-	MPI_Error_string(error_code, error_string, &length_of_error_string);    
-	//fprintf(stdout, "%3d: %s\n", id, error_string);
-
-	printf("++ Scatter  %s\n", error_string);
-	fflush(stdout);  
-
-    printf("--Scatter -n%d\n", id);
-	fflush(stdout);
 
 
     // memory allocation for each cell
@@ -282,7 +266,12 @@ int main(int argc, char *argv[]){
     // cycle of time step iterations
     for(t = 0; t < n_tstep; t++){
 
+
+    	//Wait for everyone before starting new iteration
+    	MPI_Barrier(MPI_COMM_WORLD);   
+
     	// zeroing the mass centers
+    	#pragma omp parallel for private (i, j)
     	for(i = 0; i < ncside; i++)
     		for(j = 0; j < ncside; j++){
     			sub_cell_mat[i * ncside + j].x = 0;
@@ -293,22 +282,19 @@ int main(int argc, char *argv[]){
     			m_cell[i * ncside + j] = 0;
     		}
 
-		printf("--Zeroes -n%d -i%d\n", id, t);
-		fflush(stdout);
-
-
     	// calculation of the mass center
+    	#pragma omp parallel for private(i, column, row)
 		for(i = 0; i < size; i++){
 
 			// get location in grid from the position - truncating the float value
 			column = (int) (sub_par[i].x * ncside);
 			row = (int) (sub_par[i].y * ncside);
 
-			printf("--row columns -n%d -i%d\n", id, i);
-			fflush(stdout);
-
+			#pragma omp atomic
 			y_cell[column * ncside + row] += sub_par[i].m * sub_par[i].y;
+			#pragma omp atomic
 			x_cell[column * ncside + row] += sub_par[i].m * sub_par[i].x;
+			#pragma omp atomic
 			m_cell[column * ncside + row] += sub_par[i].m;
 			/*// average calculated progressively without needing to store every x and y value
 			sub_cell_mat[column * ncside + row].y += sub_par[i].m * sub_par[i].y;
@@ -319,55 +305,36 @@ int main(int argc, char *argv[]){
 
 		}
 
-		printf("--Mass center-n%d -i%d\n", id, t);
-		fflush(stdout);
-
 		//Perform redution on matrix of cells calculations
-		MPI_Reduce(x_cell, x_cell_sub, ncside * ncside, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-		MPI_Reduce(y_cell, y_cell_sub, ncside * ncside, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-		error_code = MPI_Reduce(m_cell, m_cell_sub, ncside * ncside, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+		MPI_Allreduce(x_cell, x_cell_sub, ncside * ncside, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+		//MPI_Barrier(MPI_COMM_WORLD);   
 
-		error_string[BUFSIZ];    
-		length_of_error_string;    
-		MPI_Error_string(error_code, error_string, &length_of_error_string);    
-		//fprintf(stdout, "%3d: %s\n", id, error_string);
 
-		printf("++ Reduce  %s\n", error_string);
-		fflush(stdout);
+		MPI_Allreduce(y_cell, y_cell_sub, ncside * ncside, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+		//MPI_Barrier(MPI_COMM_WORLD);
 
-		printf("--Reduce-n%d\n", id);
-		fflush(stdout);
+		MPI_Allreduce(m_cell, m_cell_sub, ncside * ncside, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+		//MPI_Barrier(MPI_COMM_WORLD);
 
-		if(!id){
-			for(i = 0; i < ncside; i++)
-				for(j = 0; j < ncside; j++){
-					cell_mat[i * ncside + j].x = x_cell_sub[i* ncside + j];
-					cell_mat[i * ncside + j].y = y_cell_sub[i* ncside + j];
-					cell_mat[i * ncside + j].m = m_cell_sub[i* ncside + j];
+		//if(!id){
+		#pragma omp parallel for private(i, j)
+		for(i = 0; i < ncside; i++)
+			for(j = 0; j < ncside; j++){
+				cell_mat[i * ncside + j].x = x_cell_sub[i* ncside + j];
+				cell_mat[i * ncside + j].y = y_cell_sub[i* ncside + j];
+				cell_mat[i * ncside + j].m = m_cell_sub[i* ncside + j];
 
-					cell_mat[i * ncside + j].x /= cell_mat[i * ncside + j].m;
-					cell_mat[i * ncside + j].y /= cell_mat[i * ncside + j].m;
-				}			
-		}
-
-		printf("--Division-n%d\n", id);
-		fflush(stdout);
+				cell_mat[i * ncside + j].x /= cell_mat[i * ncside + j].m;
+				cell_mat[i * ncside + j].y /= cell_mat[i * ncside + j].m;
+			}			
+		//}
 
 		//send cell data to everyone
-		error_code = MPI_Bcast(cell_mat, ncside* ncside, mpi_cell_type, 0, MPI_COMM_WORLD);
+		//MPI_Bcast(cell_mat, ncside* ncside, mpi_cell_type, 0, MPI_COMM_WORLD);
 
-		error_string[BUFSIZ];    
-		length_of_error_string;    
-		MPI_Error_string(error_code, error_string, &length_of_error_string);    
-		//fprintf(stdout, "%3d: %s\n", id, error_string);
-
-		printf("++ Broad %s\n", error_string);
-		fflush(stdout);
-
-		printf("--Broadcast-n%d\n", id);
-		fflush(stdout);
 
     	// calculation of the gravitational force
+		#pragma omp parallel for private(i, j, k, column, row, adj_column, adj_row, dx, dy, d2, F)
     	for(i = 0; i < size; i++){
 
     		// get location in grid from the position - truncating the float value
@@ -461,6 +428,7 @@ int main(int argc, char *argv[]){
    		}
 
    		// get new positions
+   		#pragma omp parallel for private(i, ax, ay)
     	for(i = 0; i < size; i++){
 
 			// get acceleration
@@ -494,26 +462,16 @@ int main(int argc, char *argv[]){
 
 			//printf("fx %lf   fy %lf\n", par[i].fx, par[i].fy);
 			//printf("ax %lf ay %lf \n", ax, ay);
-			fflush(stdout);
-
 
     	}
 
-    	//Wait for everyone before starting new iteration
-    	error_code = MPI_Barrier(MPI_COMM_WORLD);
-
-    	error_string[BUFSIZ];    
-		length_of_error_string;    
-		MPI_Error_string(error_code, error_string, &length_of_error_string);    
-		//fprintf(stdout, "%3d: %s\n", id, error_string);
-
-		printf("++ Barrier -n%d %s\n", id, error_string);
-		fflush(stdout);	
+    		
 
     }
 
 
-
+	//Wait for everyone before starting new iteration
+	MPI_Barrier(MPI_COMM_WORLD);   
 
 
     // calculate final mass center
@@ -531,8 +489,11 @@ int main(int argc, char *argv[]){
     }
 
     MPI_Reduce(&sub_mx, &mx, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+    //MPI_Barrier(MPI_COMM_WORLD);
 	MPI_Reduce(&sub_my, &my, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+	//MPI_Barrier(MPI_COMM_WORLD);
 	MPI_Reduce(&sub_m, &m, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+	//MPI_Barrier(MPI_COMM_WORLD);
 
 	//Note: Altrough is faster to average the cells the result ends up poorly rounded, failing the correct answer for +-0.01
     /*
@@ -552,7 +513,7 @@ int main(int argc, char *argv[]){
 	    my = my/m;
 
 	    // output
-	    printf("%.2lf %.2lf\n", par[0].x, par[0].y );
+	    printf("%.2lf %.2lf\n", sub_par[0].x, sub_par[0].y );
 	    printf("%.2lf %.2lf\n", mx, my );	
 	}
 
